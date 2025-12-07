@@ -29,3 +29,9 @@ mcp[cli]
 # Other dependencies
 a2a-sdk
 numpy
+
+streamlit
+plotly
+google-api-python-client
+python-dotenv
+pandas

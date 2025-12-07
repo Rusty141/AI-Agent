@@ -415,3 +415,9 @@ FodyWeavers.xsd
 # Ignore Cognee system and data storage
 13-agent-memory/.cognee_system
 13-agent-memory/.data_storage
+
+# Atomberg generated AI outputs (DO NOT COMMIT)
+overall_sov.json
+sov_by_keyword.json
+raw_youtube_records.json
+insights.md
