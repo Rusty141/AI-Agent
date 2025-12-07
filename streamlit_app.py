@@ -123,13 +123,15 @@ def main():
         layout="wide",
     )
 
-    st.title("📊 Atomberg YouTube Share of Voice (SoV) Dashboard")
+    st.title("📊 Atomberg Share of Voice (SoV) Dashboard")
+
     st.markdown(
         """
-        This dashboard summarizes how **Atomberg** performs on YouTube compared to other fan brands
-        for smart-fan-related keywords.
+        This dashboard summarizes how **Atomberg** performs compared to other fan brands
+        for smart-fan-related keywords across platforms (starting with YouTube, extensible to
+        Google/Instagram/X).
 
-        **Data source:**
+        **Data source (current live demo):**
         - YouTube search results for keywords like **"smart fan"**, **"BLDC fan"**, **"smart ceiling fan"**, etc.
         - Top N videos per keyword, plus top comments and engagement metrics.
         - Brand mentions extracted from titles, descriptions, and comments.
@@ -137,10 +139,10 @@ def main():
         """
     )
 
-    # ---- Sidebar controls ----
+    # ---- Sidebar: controls & refresh ----
     st.sidebar.header("Controls")
 
-    if st.sidebar.button("🔁 Refresh data (run YouTube agent)"):
+    if st.sidebar.button("🔁 Refresh data (run SoV agent)"):
         ok = run_agent_pipeline()
         if ok:
             st.sidebar.success("Data refreshed successfully!")
@@ -149,7 +151,8 @@ def main():
 
     st.sidebar.markdown("---")
     st.sidebar.info(
-        "Use the button above to re-run the YouTube SoV agent and update the dashboard with fresh data."
+        "Use the button above to re-run the SoV agent (YouTube + insights) "
+        "and update the dashboard with fresh data."
     )
 
     # ---- Load data (auto-run agent if missing) ----
@@ -157,7 +160,7 @@ def main():
         overall_raw = load_overall_sov()
         by_kw_raw = load_sov_by_keyword()
     except FileNotFoundError:
-        st.warning("No data files found yet. Running the YouTube agent once...")
+        st.warning("No data files found yet. Running the SoV agent once...")
         ok = run_agent_pipeline()
         if not ok:
             st.stop()
@@ -168,13 +171,42 @@ def main():
     kw_df = by_keyword_to_df(by_kw_raw)
     insights_md = load_insights()
 
-    # ---- Sidebar filters ----
+    # =========================
+    # Platform dimension (for future Google/IG/X)
+    # =========================
+
+    # If backend later adds a platform field, we respect it. For now, default to YouTube.
+    if "platform" not in overall_df.columns:
+        overall_df["platform"] = "YouTube"
+    if "platform" not in kw_df.columns:
+        kw_df["platform"] = "YouTube"
+
+    all_platforms = sorted(overall_df["platform"].unique())
+
     st.sidebar.header("Filters & Settings")
 
-    # Keywords filter
-    all_keywords = sorted(kw_df["keyword"].unique())
+    selected_platforms = st.sidebar.multiselect(
+        "Platforms:",
+        options=all_platforms,
+        default=all_platforms,
+    )
+
+    if not selected_platforms:
+        st.warning("Please select at least one platform.")
+        st.stop()
+
+    # Filter overall + keyword data by platform
+    overall_platform_df = overall_df[overall_df["platform"].isin(selected_platforms)].copy()
+    kw_platform_df = kw_df[kw_df["platform"].isin(selected_platforms)].copy()
+
+    if overall_platform_df.empty or kw_platform_df.empty:
+        st.warning("No data for the selected platform(s).")
+        st.stop()
+
+    # Keywords filter (after platform filter)
+    all_keywords = sorted(kw_platform_df["keyword"].unique())
     selected_keywords = st.sidebar.multiselect(
-        "Select keywords (for per-keyword view):",
+        "Keywords (for per-keyword view):",
         options=all_keywords,
         default=all_keywords,
     )
@@ -194,19 +226,38 @@ def main():
     metric_col = metric_map[metric_label]
 
     # Brand focus
-    focus_brand = st.sidebar.selectbox(
-        "Focus brand (for comparison cards):",
-        options=overall_df["brand"].tolist(),
-        index=overall_df["brand"].tolist().index("Atomberg") if "Atomberg" in overall_df["brand"].tolist() else 0,
+    focus_brand_options = sorted(overall_platform_df["brand"].unique())
+    default_focus_idx = (
+        focus_brand_options.index("Atomberg")
+        if "Atomberg" in focus_brand_options
+        else 0
     )
+    focus_brand = st.sidebar.selectbox(
+        "Focus brand (for KPI cards):",
+        options=focus_brand_options,
+        index=default_focus_idx,
+    )
+
+    # =========================
+    # Cross-platform summary cards
+    # =========================
+    st.subheader("Cross-Platform SoV Coverage")
+
+    col_p1, col_p2, col_p3 = st.columns(3)
+    col_p1.metric("Platforms analyzed", str(len(all_platforms)))
+    col_p2.metric("Platforms selected", ", ".join(selected_platforms))
+    col_p3.metric("Keywords tracked", str(len(all_keywords)))
 
     # =========================
     # Overall KPIs (top row)
     # =========================
-    st.subheader("Overall Brand Performance (All Keywords Combined)")
+    st.subheader("Overall Brand Performance (All Selected Platforms & Keywords)")
 
-    # Sort by engagement SoV
-    df_sorted = overall_df.sort_values("sov_engagement", ascending=False).reset_index(drop=True)
+    # Sort by engagement SoV for selected platforms
+    df_sorted = (
+        overall_platform_df.sort_values("sov_engagement", ascending=False)
+        .reset_index(drop=True)
+    )
 
     # find focus brand row
     focus_row = df_sorted[df_sorted["brand"] == focus_brand].iloc[0]
@@ -215,23 +266,26 @@ def main():
     col_kpi1.metric(
         label=f"{focus_brand} – Content SoV",
         value=f"{focus_row['sov_content']*100:.1f}%",
-        help="Share of all videos (in top search results) that mention this brand."
+        help="Share of all videos (in top search results) that mention this brand "
+             "across the selected platforms."
     )
     col_kpi2.metric(
         label=f"{focus_brand} – Engagement SoV",
         value=f"{focus_row['sov_engagement']*100:.1f}%",
-        help="Share of total engagement (views + 10×likes + 20×comments)."
+        help="Share of total engagement (views + 10×likes + 20×comments) "
+             "across the selected platforms."
     )
     col_kpi3.metric(
         label=f"{focus_brand} – Share of Positive Voice",
         value=f"{focus_row['share_of_positive_voice']*100:.1f}%",
-        help="Brand's share of positive, engagement-weighted sentiment."
+        help="Brand's share of positive, engagement-weighted sentiment "
+             "across the selected platforms."
     )
 
     # =========================
     # Overall bar chart
     # =========================
-    st.markdown("### Overall Share of Voice by Brand")
+    st.markdown("### Overall Share of Voice by Brand (Selected Platforms)")
 
     fig_overall = px.bar(
         df_sorted,
@@ -242,19 +296,23 @@ def main():
         title=metric_label,
     )
     fig_overall.update_traces(textposition="outside")
-    fig_overall.update_layout(yaxis_tickformat=".0%", uniformtext_minsize=8, uniformtext_mode="hide")
+    fig_overall.update_layout(
+        yaxis_tickformat=".0%",
+        uniformtext_minsize=8,
+        uniformtext_mode="hide",
+    )
 
     st.plotly_chart(fig_overall, use_container_width=True)
 
     # =========================
     # Per-keyword analysis
     # =========================
-    st.markdown("### Per-Keyword Share of Voice (Brownie Points 😉)")
+    st.markdown("### Per-Keyword Share of Voice")
 
     if selected_keywords:
-        kw_filtered = kw_df[kw_df["keyword"].isin(selected_keywords)].copy()
+        kw_filtered = kw_platform_df[kw_platform_df["keyword"].isin(selected_keywords)].copy()
     else:
-        kw_filtered = kw_df.copy()
+        kw_filtered = kw_platform_df.copy()
 
     # Aggregate by keyword + brand for the chosen metric
     kw_metric_df = (
@@ -272,16 +330,16 @@ def main():
         zmin=0,
         zmax=pivot.values.max() if pivot.values.max() > 0 else 1,
         text_auto=".1%",
-        title=f"{metric_label} by Keyword and Brand",
+        title=f"{metric_label} by Keyword and Brand (Selected Platforms)",
     )
     st.plotly_chart(fig_kw, use_container_width=True)
 
     # =========================
     # Scatter: Engagement vs Positive Voice
     # =========================
-    st.markdown("### Engagement vs. Positive Voice")
+    st.markdown("### Engagement vs. Positive Voice (Selected Platforms)")
 
-    scatter_df = overall_df.copy()
+    scatter_df = overall_platform_df.copy()
     scatter_df["sov_engagement_pct"] = scatter_df["sov_engagement"] * 100
     scatter_df["sopv_pct"] = scatter_df["share_of_positive_voice"] * 100
 
@@ -303,9 +361,9 @@ def main():
     # Raw tables
     # =========================
     with st.expander("Show underlying tables"):
-        st.markdown("#### Overall metrics table")
+        st.markdown("#### Overall metrics table (with platform column)")
         st.dataframe(
-            overall_df.style.format({
+            overall_platform_df.style.format({
                 "sov_content": "{:.2%}",
                 "sov_engagement": "{:.2%}",
                 "sov_comments": "{:.2%}",
@@ -314,9 +372,9 @@ def main():
             use_container_width=True,
         )
 
-        st.markdown("#### Per-keyword metrics table")
+        st.markdown("#### Per-keyword metrics table (with platform column)")
         st.dataframe(
-            kw_df.style.format({
+            kw_platform_df.style.format({
                 "sov_content": "{:.2%}",
                 "sov_engagement": "{:.2%}",
                 "sov_comments": "{:.2%}",
@@ -334,7 +392,7 @@ def main():
         st.markdown(insights_md, unsafe_allow_html=True)
     else:
         st.info(
-            "No insights file found yet. Run the YouTube agent once (using the "
+            "No insights file found yet. Run the SoV agent once (using the "
             "Refresh data button in the sidebar) to generate AI-driven recommendations."
         )
 
