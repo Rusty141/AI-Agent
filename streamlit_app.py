@@ -386,7 +386,7 @@ def main():
     # =========================
     # AI-Generated Insights & Recommendations
     # =========================
-    st.markdown("### 🧠 AI-Generated Insights & Recommendations")
+    # st.markdown("### 🧠 AI-Generated Insights & Recommendations")
 
     if insights_md.strip():
         st.markdown(insights_md, unsafe_allow_html=True)
