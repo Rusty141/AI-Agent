@@ -35,3 +35,4 @@ plotly
 google-api-python-client
 python-dotenv
 pandas
+insights.md

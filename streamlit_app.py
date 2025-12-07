@@ -1,5 +1,7 @@
 import json
 import os
+import sys
+import subprocess
 from typing import Dict, Any
 
 import pandas as pd
@@ -8,25 +10,74 @@ import plotly.express as px
 
 
 # =========================
-# Helpers to load & reshape
+# Paths / constants
 # =========================
 
+AGENT_SCRIPT = os.path.join("projects", "atomberg_sov", "atomberg_sov_agent.py")
+OVERALL_PATH = "overall_sov.json"
+BY_KW_PATH = "sov_by_keyword.json"
+INSIGHTS_PATH = "insights.md"
+
+
+# =========================
+# Helpers: run pipeline + load & reshape
+# =========================
+
+def run_agent_pipeline() -> bool:
+    """
+    Run the YouTube SoV agent script to refresh data.
+    Uses the same Python interpreter that runs Streamlit.
+    """
+    if not os.path.exists(AGENT_SCRIPT):
+        st.error(f"Agent script not found at: {AGENT_SCRIPT}")
+        return False
+
+    try:
+        with st.spinner("Running YouTube SoV agent (this may take a few minutes)..."):
+            result = subprocess.run(
+                [sys.executable, AGENT_SCRIPT],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            # Uncomment for debugging:
+            # st.text(result.stdout)
+            # st.text(result.stderr)
+    except subprocess.CalledProcessError as e:
+        st.error("Agent script failed. See details below.")
+        st.code(e.stdout + "\n" + e.stderr)
+        return False
+
+    # Clear cached data so new JSON is loaded
+    load_overall_sov.clear()
+    load_sov_by_keyword.clear()
+    return True
+
+
 @st.cache_data
-def load_overall_sov(path: str = "overall_sov.json") -> Dict[str, Any]:
+def load_overall_sov(path: str = OVERALL_PATH) -> Dict[str, Any]:
     if not os.path.exists(path):
-        st.error(f"File '{path}' not found. Please run your atomberg_sov_agent.py first.")
-        st.stop()
+        raise FileNotFoundError(f"File '{path}' not found.")
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 @st.cache_data
-def load_sov_by_keyword(path: str = "sov_by_keyword.json") -> Dict[str, Any]:
+def load_sov_by_keyword(path: str = BY_KW_PATH) -> Dict[str, Any]:
     if not os.path.exists(path):
-        st.error(f"File '{path}' not found. Please run your atomberg_sov_agent.py first.")
-        st.stop()
+        raise FileNotFoundError(f"File '{path}' not found.")
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_insights(path: str = INSIGHTS_PATH) -> str:
+    """
+    Load AI-generated insights from insights.md (written by atomberg_sov_agent.py)
+    """
+    if not os.path.exists(path):
+        return ""
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
 
 
 def overall_to_df(overall: Dict[str, Any]) -> pd.DataFrame:
@@ -78,7 +129,7 @@ def main():
         This dashboard summarizes how **Atomberg** performs on YouTube compared to other fan brands
         for smart-fan-related keywords.
 
-        Data source:
+        **Data source:**
         - YouTube search results for keywords like **"smart fan"**, **"BLDC fan"**, **"smart ceiling fan"**, etc.
         - Top N videos per keyword, plus top comments and engagement metrics.
         - Brand mentions extracted from titles, descriptions, and comments.
@@ -86,14 +137,38 @@ def main():
         """
     )
 
-    # ---- Load data ----
-    overall_raw = load_overall_sov()
-    by_kw_raw = load_sov_by_keyword()
+    # ---- Sidebar controls ----
+    st.sidebar.header("Controls")
+
+    if st.sidebar.button("🔁 Refresh data (run YouTube agent)"):
+        ok = run_agent_pipeline()
+        if ok:
+            st.sidebar.success("Data refreshed successfully!")
+        else:
+            st.sidebar.error("Failed to refresh data. See error above.")
+
+    st.sidebar.markdown("---")
+    st.sidebar.info(
+        "Use the button above to re-run the YouTube SoV agent and update the dashboard with fresh data."
+    )
+
+    # ---- Load data (auto-run agent if missing) ----
+    try:
+        overall_raw = load_overall_sov()
+        by_kw_raw = load_sov_by_keyword()
+    except FileNotFoundError:
+        st.warning("No data files found yet. Running the YouTube agent once...")
+        ok = run_agent_pipeline()
+        if not ok:
+            st.stop()
+        overall_raw = load_overall_sov()
+        by_kw_raw = load_sov_by_keyword()
 
     overall_df = overall_to_df(overall_raw)
     kw_df = by_keyword_to_df(by_kw_raw)
+    insights_md = load_insights()
 
-    # ---- Sidebar controls ----
+    # ---- Sidebar filters ----
     st.sidebar.header("Filters & Settings")
 
     # Keywords filter
@@ -123,12 +198,6 @@ def main():
         "Focus brand (for comparison cards):",
         options=overall_df["brand"].tolist(),
         index=overall_df["brand"].tolist().index("Atomberg") if "Atomberg" in overall_df["brand"].tolist() else 0,
-    )
-
-    st.sidebar.markdown("---")
-    st.sidebar.info(
-        "ℹ️ To refresh data, re-run your YouTube agent script "
-        "and then reload this page."
     )
 
     # =========================
@@ -196,9 +265,6 @@ def main():
     # Heatmap style plot (keyword vs brand)
     pivot = kw_metric_df.pivot(index="keyword", columns="brand", values=metric_col).fillna(0)
 
-    # Melt again for Plotly heatmap-ish chart
-    melted = pivot.reset_index().melt(id_vars="keyword", var_name="brand", value_name="value")
-
     fig_kw = px.imshow(
         pivot,
         labels=dict(x="Brand", y="Keyword", color=metric_label),
@@ -257,6 +323,19 @@ def main():
                 "share_of_positive_voice": "{:.2%}",
             }),
             use_container_width=True,
+        )
+
+    # =========================
+    # AI-Generated Insights & Recommendations
+    # =========================
+    st.markdown("### 🧠 AI-Generated Insights & Recommendations")
+
+    if insights_md.strip():
+        st.markdown(insights_md, unsafe_allow_html=True)
+    else:
+        st.info(
+            "No insights file found yet. Run the YouTube agent once (using the "
+            "Refresh data button in the sidebar) to generate AI-driven recommendations."
         )
 
 
