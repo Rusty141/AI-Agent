@@ -1,21 +1,23 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/AI-Agent-Autonomous-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Platform-YouTube%20Analytics-red?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/LLM-GitHub%20Models%20GPT--4o--mini-green?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Framework-Microsoft%20AutoGen-orange?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/AI-Agent-blueviolet?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Platform-YouTube-red?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Analytics-Share_of_Voice-orange?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/LLM-GPT--4o--mini-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Framework-Microsoft_AutoGen-yellow?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Dashboard-Streamlit-ff4b4b?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Status-LIVE-success?style=for-the-badge" />
-  <img src="https://img.shields.io/github/license/Rusty141/AI-Agent?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Status-LIVE-brightgreen?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/License-MIT-lightgrey?style=for-the-badge" />
 </p>
 
 <p align="center">
   <a href="https://atomberg-sov-dashboard.streamlit.app/">
-    <img src="https://img.shields.io/badge/Live_Dashboard-Click_to_Open-brightgreen?style=for-the-badge" />
+    <img src="https://img.shields.io/badge/Live_Dashboard-Open_Now-success?style=for-the-badge" />
   </a>
   <a href="https://github.com/Rusty141/AI-Agent">
     <img src="https://img.shields.io/badge/GitHub_Repo-Open_Project-blue?style=for-the-badge" />
   </a>
 </p>
+
 
 
 Perfect — here’s a **clean, professional, industry-grade `README.md`** tailored exactly for your project.
