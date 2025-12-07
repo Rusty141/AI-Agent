@@ -479,6 +479,15 @@ def main() -> None:
     insights = asyncio.run(agent.generate_insights(overall_sov, sov_by_keyword))
     print(insights)
 
+    insights_path = "insights.md"
+    with open(insights_path, "w", encoding="utf-8") as f:
+        f.write("### AI-Generated Insights & Recommendations\n\n")
+        if isinstance(insights, str):
+            f.write(insights)
+        else:
+            f.write(str(insights))
+
+    print(f"\nInsights saved to {insights_path}")
 
 if __name__ == "__main__":
     main()
