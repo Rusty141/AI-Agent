@@ -154,6 +154,25 @@ Uses **GitHub Models (GPT-4o-mini)** to:
 
 ---
 
+## 🏗️ System Architecture & Data Flow
+
+This diagram shows the complete AI-agent pipeline from **data ingestion** to **business insights & visualization**.
+
+![System Flow Diagram](assets/system_flow.png)
+
+### 🔄 Pipeline Explanation
+1. **User Keywords Input**
+2. **YouTube Data Ingestion (API)**
+3. **Brand Detection Engine (Regex NLP)**
+4. **Sentiment Analysis (Positive / Neutral / Negative)**
+5. **Share of Voice Computation (Content, Engagement, Comments, SoPV)**
+6. **AI Insight Agent (GPT-4o-mini via GitHub Models)**
+7. **Insights Output (`insights.md`)**
+8. **Streamlit Dashboard Visualization**
+9. **Business Decision Support for Marketing Team**
+
+---
+
 ## 📂 Project Structure
 
 ```
